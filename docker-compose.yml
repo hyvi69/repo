@@ -5,7 +5,7 @@ services:
     build: .
     container_name: repo-web
     ports:
-      - "5000:5000"
+      - "${APP_PORT:-5000}:5000"
     environment:
       - PORT=5000
     volumes:

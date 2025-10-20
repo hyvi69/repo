@@ -8,6 +8,7 @@ pipeline {
     environment {
         IMAGE_NAME = 'repo-web'
         CONTAINER_NAME = 'repo-web'
+        APP_PORT = '5001'
     }
 
     stages {
@@ -48,13 +49,16 @@ pipeline {
                     if (isUnix()) {
                         sh '''
                             set -euxo pipefail
+                            docker compose down || true
                             docker rm -f "$CONTAINER_NAME" || true
-                            docker compose up -d
+                            APP_PORT="$APP_PORT" docker compose up -d
                         '''
                     } else {
                         bat '''
                             @echo on
+                            docker compose down || exit /b 0
                             docker rm -f "%CONTAINER_NAME%" || exit /b 0
+                            set APP_PORT=%APP_PORT%
                             docker compose up -d
                         '''
                     }
