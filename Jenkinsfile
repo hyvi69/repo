@@ -36,7 +36,7 @@ pipeline {
                             @echo on
                             where py >nul 2>&1 && (set PY=py -3) || (set PY=python)
                             %PY% -m venv .venv
-                            call .venv\Scripts\activate
+                            call .venv\\Scripts\\activate
                             python -m pip install --upgrade pip
                             pip install -r requirements.txt
                         '''
@@ -57,7 +57,7 @@ pipeline {
                     } else {
                         bat '''
                             @echo on
-                            call .venv\Scripts\activate
+                            call .venv\\Scripts\\activate
                             pytest --junitxml=pytest-report.xml -q
                         '''
                     }
