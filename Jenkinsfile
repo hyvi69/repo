@@ -19,26 +19,49 @@ pipeline {
 
         stage('Set up Python') {
             steps {
-                sh '''
-                    set -euxo pipefail
-                    python3 -V || true
-                    pip3 -V || true
-                    if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
-                    $PY -m venv .venv
-                    . .venv/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                '''
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            set -euxo pipefail
+                            python3 -V || true
+                            pip3 -V || true
+                            if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
+                            $PY -m venv .venv
+                            . .venv/bin/activate
+                            pip install --upgrade pip
+                            pip install -r requirements.txt
+                        '''
+                    } else {
+                        bat '''
+                            @echo on
+                            where py >nul 2>&1 && (set PY=py -3) || (set PY=python)
+                            %PY% -m venv .venv
+                            call .venv\Scripts\activate
+                            python -m pip install --upgrade pip
+                            pip install -r requirements.txt
+                        '''
+                    }
+                }
             }
         }
 
         stage('Unit tests') {
             steps {
-                sh '''
-                    set -euxo pipefail
-                    . .venv/bin/activate
-                    pytest --junitxml=pytest-report.xml -q
-                '''
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            set -euxo pipefail
+                            . .venv/bin/activate
+                            pytest --junitxml=pytest-report.xml -q
+                        '''
+                    } else {
+                        bat '''
+                            @echo on
+                            call .venv\Scripts\activate
+                            pytest --junitxml=pytest-report.xml -q
+                        '''
+                    }
+                }
             }
             post {
                 always {
@@ -52,11 +75,21 @@ pipeline {
                 expression { return fileExists('Dockerfile') }
             }
             steps {
-                sh '''
-                    set -euxo pipefail
-                    docker version
-                    docker build -t "$DOCKER_IMAGE" .
-                '''
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            set -euxo pipefail
+                            docker version
+                            docker build -t "$DOCKER_IMAGE" .
+                        '''
+                    } else {
+                        bat '''
+                            @echo on
+                            docker version
+                            docker build -t "%DOCKER_IMAGE%" .
+                        '''
+                    }
+                }
             }
         }
 
@@ -68,11 +101,21 @@ pipeline {
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: env.DOCKERHUB_CREDENTIALS_ID, usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
-                    sh '''
-                        set -euxo pipefail
-                        echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-                        docker push "$DOCKER_IMAGE"
-                    '''
+                    script {
+                        if (isUnix()) {
+                            sh '''
+                                set -euxo pipefail
+                                echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+                                docker push "$DOCKER_IMAGE"
+                            '''
+                        } else {
+                            bat '''
+                                @echo on
+                                echo %DOCKERHUB_PASSWORD% | docker login -u "%DOCKERHUB_USERNAME%" --password-stdin
+                                docker push "%DOCKER_IMAGE%"
+                            '''
+                        }
+                    }
                 }
             }
         }
