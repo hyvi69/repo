@@ -6,8 +6,8 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = 'lab2devsecops-app'
-        CONTAINER_NAME = 'lab2devsecops-app'
+        IMAGE_NAME = 'repo-web'
+        CONTAINER_NAME = 'repo-web'
     }
 
     stages {
