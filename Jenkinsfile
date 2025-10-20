@@ -6,71 +6,19 @@ pipeline {
     }
 
     environment {
-        DOCKER_IMAGE = "hyvi69/repo:${env.BUILD_NUMBER}"
-        DOCKERHUB_CREDENTIALS_ID = 'dockerhub-creds'
+        IMAGE_NAME = 'lab2devsecops-app'
+        CONTAINER_NAME = 'lab2devsecops-app'
     }
 
     stages {
         stage('Checkout') {
             steps {
+                // Use the Jenkins job's configured SCM
                 checkout scm
             }
         }
 
-        stage('Set up Python') {
-            steps {
-                script {
-                    if (isUnix()) {
-                        sh '''
-                            set -euxo pipefail
-                            python3 -V || true
-                            pip3 -V || true
-                            if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
-                            $PY -m venv .venv
-                            . .venv/bin/activate
-                            pip install --upgrade pip
-                            pip install -r requirements.txt
-                        '''
-                    } else {
-                        bat '''
-                            @echo on
-                            where py >nul 2>&1 && (set PY=py -3) || (set PY=python)
-                            %PY% -m venv .venv
-                            call .venv\\Scripts\\activate
-                            python -m pip install --upgrade pip
-                            pip install -r requirements.txt
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Unit tests') {
-            steps {
-                script {
-                    if (isUnix()) {
-                        sh '''
-                            set -euxo pipefail
-                            . .venv/bin/activate
-                            pytest --junitxml=pytest-report.xml -q
-                        '''
-                    } else {
-                        bat '''
-                            @echo on
-                            call .venv\\Scripts\\activate
-                            pytest --junitxml=pytest-report.xml -q
-                        '''
-                    }
-                }
-            }
-            post {
-                always {
-                    junit 'pytest-report.xml'
-                }
-            }
-        }
-
-        stage('Docker build') {
+        stage('Build Docker Image') {
             when {
                 expression { return fileExists('Dockerfile') }
             }
@@ -79,42 +27,36 @@ pipeline {
                     if (isUnix()) {
                         sh '''
                             set -euxo pipefail
-                            docker version
-                            docker build -t "$DOCKER_IMAGE" .
+                            docker build -t "$IMAGE_NAME" .
                         '''
                     } else {
                         bat '''
                             @echo on
-                            docker version
-                            docker build -t "%DOCKER_IMAGE%" .
+                            docker build -t "%IMAGE_NAME%" .
                         '''
                     }
                 }
             }
         }
 
-        stage('Docker push (optional)') {
+        stage('Deploy') {
             when {
-                allOf {
-                    expression { return env.DOCKERHUB_CREDENTIALS_ID }
-                }
+                expression { return fileExists('docker-compose.yml') || fileExists('docker-compose.yaml') }
             }
             steps {
-                withCredentials([usernamePassword(credentialsId: env.DOCKERHUB_CREDENTIALS_ID, usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
-                    script {
-                        if (isUnix()) {
-                            sh '''
-                                set -euxo pipefail
-                                echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-                                docker push "$DOCKER_IMAGE"
-                            '''
-                        } else {
-                            bat '''
-                                @echo on
-                                echo %DOCKERHUB_PASSWORD% | docker login -u "%DOCKERHUB_USERNAME%" --password-stdin
-                                docker push "%DOCKER_IMAGE%"
-                            '''
-                        }
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            set -euxo pipefail
+                            docker rm -f "$CONTAINER_NAME" || true
+                            docker compose up -d
+                        '''
+                    } else {
+                        bat '''
+                            @echo on
+                            docker rm -f "%CONTAINER_NAME%" || exit /b 0
+                            docker compose up -d
+                        '''
                     }
                 }
             }
@@ -123,9 +65,19 @@ pipeline {
 
     post {
         always {
-            cleanWs()
+            script {
+                if (isUnix()) {
+                    sh '''
+                        set -euxo pipefail
+                        docker compose down || true
+                    '''
+                } else {
+                    bat '''
+                        @echo on
+                        docker compose down || exit /b 0
+                    '''
+                }
+            }
         }
     }
 }
-
-
