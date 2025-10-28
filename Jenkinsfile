@@ -15,7 +15,7 @@ pipeline {
     steps {
         script {
             // Create virtual environment
-            bat '"C:\Python\Python311\python.exe"-m venv venv'
+            bat '"C:\\Python\\Python311\\python.exe" -m venv venv'
             // Upgrade pip
             bat 'venv\\Scripts\\python.exe -m pip install --upgrade pip'
             // Install requirements
