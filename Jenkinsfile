@@ -11,18 +11,20 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
-            steps {
-                script {
-                    // Create virtual environment
+       stage('Install Dependencies') {
+    steps {
+        script {
+            // Create virtual environment
             bat '"C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python312\\python.exe" -m venv venv'
-            // Upgrade pip
-            bat 'venv\\Scripts\\pip install --upgrade pip'
+            
+            // Upgrade pip using python executable
+            bat 'venv\\Scripts\\python.exe -m pip install --upgrade pip'
+            
             // Install requirements
-            bat 'venv\\Scripts\\pip install -r requirements.txt'
-                }
-            }
+            bat 'venv\\Scripts\\python.exe -m pip install -r requirements.txt'
         }
+    }
+}
 
         stage('Run Tests') {
             when {
