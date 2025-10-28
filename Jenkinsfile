@@ -15,11 +15,11 @@ pipeline {
             steps {
                 script {
                     // Create virtual environment
-                    bat 'python -m venv venv'
-                    // Upgrade pip
-                    bat 'venv\\Scripts\\pip install --upgrade pip'
-                    // Install requirements
-                    bat 'venv\\Scripts\\pip install -r requirements.txt'
+            bat '"C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python312\\python.exe" -m venv venv'
+            // Upgrade pip
+            bat 'venv\\Scripts\\pip install --upgrade pip'
+            // Install requirements
+            bat 'venv\\Scripts\\pip install -r requirements.txt'
                 }
             }
         }
