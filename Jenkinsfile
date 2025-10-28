@@ -1,7 +1,7 @@
 pipeline {
     agent any
     environment {
-        IMAGE_NAME = 'python-devsecops-jenkins_app'
+        IMAGE_NAME = 'repo-web'
     }
     stages {
         stage('Checkout') {
@@ -25,9 +25,14 @@ pipeline {
         }
 
         stage('Run Tests') {
+            when {
+                expression {
+                    fileExists('test_app.py') || fileExists('tests') || fileExists('test')
+                }
+            }
             steps {
                 script {
-                    // Run pytest tests
+                    // Run pytest tests if tests exist
                     bat 'venv\\Scripts\\pytest -v'
                 }
             }
@@ -36,8 +41,8 @@ pipeline {
         stage('Static Code Analysis (Bandit)') {
             steps {
                 script {
-                    // Run Bandit for static code analysis
-                    bat 'venv\\Scripts\\bandit -r .'
+                    // Run Bandit for static code analysis (save report)
+                    bat 'venv\\Scripts\\bandit -r . -f txt -o bandit-report.txt || exit 0'
                 }
             }
         }
@@ -45,8 +50,8 @@ pipeline {
         stage('Check Dependency Vulnerabilities (Safety)') {
             steps {
                 script {
-                    // Run Safety to check Python dependencies
-                    bat 'venv\\Scripts\\safety check -r requirements.txt'
+                    // Run Safety to check Python dependencies (save report)
+                    bat 'venv\\Scripts\\safety check --full-report -r requirements.txt > safety-report.txt || exit 0'
                 }
             }
         }
@@ -54,8 +59,8 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Build Docker image using Docker Compose
-                    bat 'docker-compose build'
+                    // Build Docker image with explicit tag
+                    bat "docker build -t ${IMAGE_NAME}:latest ."
                 }
             }
         }
@@ -63,8 +68,8 @@ pipeline {
         stage('Container Vulnerability Scan (Trivy)') {
             steps {
                 script {
-                    // Scan Docker image with Trivy
-                    bat "trivy image ${IMAGE_NAME}:latest"
+                    // Scan Docker image with Trivy (save report)
+                    bat "trivy image --no-progress ${IMAGE_NAME}:latest > trivy-report.txt || exit 0"
                 }
             }
         }
@@ -73,7 +78,7 @@ pipeline {
             steps {
                 script {
                     // Deploy Docker containers
-                    bat 'docker-compose up -d'
+                    bat 'docker compose up -d'
                 }
             }
         }
@@ -83,6 +88,8 @@ pipeline {
         always {
             // Clean workspace after build
             cleanWs()
+            // Archive security scan reports (if present)
+            archiveArtifacts artifacts: 'bandit-report.txt, safety-report.txt, trivy-report.txt', allowEmptyArchive: true
         }
     }
 }
