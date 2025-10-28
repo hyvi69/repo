@@ -11,20 +11,21 @@ pipeline {
             }
         }
 
-       stage('Install Dependencies') {
+      stage('Install Dependencies') {
     steps {
         script {
             // Create virtual environment
-            bat '"C:\\Users\\DELL\\AppData\\Local\\Programs\\Python\\Python312\\python.exe" -m venv venv'
-            
-            // Upgrade pip using python executable
+            bat 'python -m venv venv'
+            // Upgrade pip
             bat 'venv\\Scripts\\python.exe -m pip install --upgrade pip'
-            
             // Install requirements
             bat 'venv\\Scripts\\python.exe -m pip install -r requirements.txt'
+            // Install compatible Werkzeug
+            bat 'venv\\Scripts\\python.exe -m pip install Werkzeug==2.2.3'
         }
     }
 }
+
 
         stage('Run Tests') {
             when {
