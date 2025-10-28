@@ -1,8 +1,6 @@
 pipeline {
     agent any
     environment {
-        // Set up Python and Docker
-        PYTHON_IMAGE = 'python:3.9-slim'
         IMAGE_NAME = 'python-devsecops-jenkins_app'
     }
     stages {
@@ -16,9 +14,12 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 script {
-                    // Install Python dependencies
-                    sh 'python3 -m venv venv'
-                    sh './venv/bin/pip install -r requirements.txt'
+                    // Create virtual environment
+                    bat 'python -m venv venv'
+                    // Upgrade pip
+                    bat 'venv\\Scripts\\pip install --upgrade pip'
+                    // Install requirements
+                    bat 'venv\\Scripts\\pip install -r requirements.txt'
                 }
             }
         }
@@ -26,8 +27,8 @@ pipeline {
         stage('Run Tests') {
             steps {
                 script {
-                    // Run the tests with pytest
-                    sh './venv/bin/pytest'
+                    // Run pytest tests
+                    bat 'venv\\Scripts\\pytest -v'
                 }
             }
         }
@@ -36,18 +37,7 @@ pipeline {
             steps {
                 script {
                     // Run Bandit for static code analysis
-                    sh './venv/bin/bandit -r .'
-                }
-            }
-        }
-
-        stage('Container Vulnerability Scan (Trivy)') {
-            steps {
-                script {
-                    // Build the Docker image
-                    sh 'docker-compose build'
-                    // Scan the image with Trivy
-                    sh 'trivy image ${IMAGE_NAME}:latest'
+                    bat 'venv\\Scripts\\bandit -r .'
                 }
             }
         }
@@ -55,8 +45,8 @@ pipeline {
         stage('Check Dependency Vulnerabilities (Safety)') {
             steps {
                 script {
-                    // Run Safety to check dependencies
-                    sh './venv/bin/safety check'
+                    // Run Safety to check Python dependencies
+                    bat 'venv\\Scripts\\safety check -r requirements.txt'
                 }
             }
         }
@@ -64,8 +54,17 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Build Docker image
-                    sh 'docker-compose build'
+                    // Build Docker image using Docker Compose
+                    bat 'docker-compose build'
+                }
+            }
+        }
+
+        stage('Container Vulnerability Scan (Trivy)') {
+            steps {
+                script {
+                    // Scan Docker image with Trivy
+                    bat "trivy image ${IMAGE_NAME}:latest"
                 }
             }
         }
@@ -73,15 +72,16 @@ pipeline {
         stage('Deploy Application') {
             steps {
                 script {
-                    // Deploy the application using Docker Compose
-                    sh 'docker-compose up -d'
+                    // Deploy Docker containers
+                    bat 'docker-compose up -d'
                 }
             }
         }
     }
+
     post {
         always {
-            // Clean up after build
+            // Clean workspace after build
             cleanWs()
         }
     }
