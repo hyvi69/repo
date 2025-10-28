@@ -1,87 +1,88 @@
 pipeline {
     agent any
-
-    options {
-        timestamps()
-    }
-
     environment {
-        IMAGE_NAME = 'repo-web'
-        CONTAINER_NAME = 'repo-web'
-        APP_PORT = '5001'
+        // Set up Python and Docker
+        PYTHON_IMAGE = 'python:3.9-slim'
+        IMAGE_NAME = 'python-devsecops-jenkins_app'
     }
-
     stages {
         stage('Checkout') {
             steps {
-                // Use the Jenkins job's configured SCM
+                // Pull the code from GitHub
                 checkout scm
             }
         }
 
-        stage('Build Docker Image') {
-            when {
-                expression { return fileExists('Dockerfile') }
-            }
+        stage('Install Dependencies') {
             steps {
                 script {
-                    if (isUnix()) {
-                        sh '''
-                            set -euxo pipefail
-                            docker build -t "$IMAGE_NAME" .
-                        '''
-                    } else {
-                        bat '''
-                            @echo on
-                            docker build -t "%IMAGE_NAME%" .
-                        '''
-                    }
+                    // Install Python dependencies
+                    sh 'python3 -m venv venv'
+                    sh './venv/bin/pip install -r requirements.txt'
                 }
             }
         }
 
-        stage('Deploy') {
-            when {
-                expression { return fileExists('docker-compose.yml') || fileExists('docker-compose.yaml') }
-            }
+        stage('Run Tests') {
             steps {
                 script {
-                    if (isUnix()) {
-                        sh '''
-                            set -euxo pipefail
-                            docker compose down || true
-                            docker rm -f "$CONTAINER_NAME" || true
-                            APP_PORT="$APP_PORT" docker compose up -d
-                        '''
-                    } else {
-                        bat '''
-                            @echo on
-                            docker compose down || exit /b 0
-                            docker rm -f "%CONTAINER_NAME%" || exit /b 0
-                            set APP_PORT=%APP_PORT%
-                            docker compose up -d
-                        '''
-                    }
+                    // Run the tests with pytest
+                    sh './venv/bin/pytest'
+                }
+            }
+        }
+
+        stage('Static Code Analysis (Bandit)') {
+            steps {
+                script {
+                    // Run Bandit for static code analysis
+                    sh './venv/bin/bandit -r .'
+                }
+            }
+        }
+
+        stage('Container Vulnerability Scan (Trivy)') {
+            steps {
+                script {
+                    // Build the Docker image
+                    sh 'docker-compose build'
+                    // Scan the image with Trivy
+                    sh 'trivy image ${IMAGE_NAME}:latest'
+                }
+            }
+        }
+
+        stage('Check Dependency Vulnerabilities (Safety)') {
+            steps {
+                script {
+                    // Run Safety to check dependencies
+                    sh './venv/bin/safety check'
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    // Build Docker image
+                    sh 'docker-compose build'
+                }
+            }
+        }
+
+        stage('Deploy Application') {
+            steps {
+                script {
+                    // Deploy the application using Docker Compose
+                    sh 'docker-compose up -d'
                 }
             }
         }
     }
-
     post {
         always {
-            script {
-                if (isUnix()) {
-                    sh '''
-                        set -euxo pipefail
-                        docker compose down || true
-                    '''
-                } else {
-                    bat '''
-                        @echo on
-                        docker compose down || exit /b 0
-                    '''
-                }
-            }
+            // Clean up after build
+            cleanWs()
         }
     }
 }
